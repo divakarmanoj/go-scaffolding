@@ -1,3 +1,3 @@
-module github.com/go-scaffolding
+module github.com/divakarmanoj/go-scaffolding
 
 go 1.20
