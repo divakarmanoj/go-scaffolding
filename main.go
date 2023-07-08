@@ -1,19 +1,11 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"go/format"
 	"os"
 	"strings"
 )
-
-type Attributes struct {
-	Name       string       `json:"name"`
-	Type       string       `json:"type"`
-	Attributes []Attributes `json:"attributes"`
-	IsRequired bool         `json:"is_required"`
-}
 
 type Structure struct {
 	Name       string       `json:"name"`
@@ -48,160 +40,17 @@ var input = `{
 				{
 					"Name": "State",
 					"Type": "string",
-					"is_required": true
+					"is_required": false
 				},
 				{
 					"Name": "Zip",
 					"Type": "int16",
 					"is_required": true
 				}
-			],
-			"is_required": true
+			]
 		}
 	]
 }`
-
-// ParseStruct function accepts a string and tries to parse it into a Struct
-func ParseStruct(s string) (*Structure, error) {
-	var Data Structure
-
-	err := json.Unmarshal([]byte(s), &Data)
-	if err != nil {
-		return nil, err
-	}
-	return &Data, nil
-}
-
-// ConvertStruct function accepts a Structure and converts it into a string
-func ConvertStruct(s *Structure, IsRequest bool, IsResponse bool) (string, error) {
-	output := ""
-	if IsRequest && IsResponse {
-		return "", fmt.Errorf("cannot be both request and response")
-	}
-	if IsRequest {
-		output += fmt.Sprintf("type %sRequest struct {\n", s.Name)
-	} else if IsResponse {
-		output += fmt.Sprintf("type %sResponse struct {\n\tResponse\n", s.Name)
-
-	} else {
-		output += fmt.Sprintf("type %s struct {\n", s.Name)
-	}
-
-	structs := []string{}
-	for _, v := range s.Attributes {
-		if !isValidType(v.Type) {
-			return "", fmt.Errorf("invalid type %s", v.Type)
-		}
-
-		if v.Type != "struct" {
-			if v.IsRequired {
-				output += fmt.Sprintf("\t%s\t%s\t`json:\"%s\"`\n", toCamelCase(v.Name), v.Type, toSnakeCase(v.Name))
-			} else {
-				output += fmt.Sprintf("\t%s\t*%s\t`json:\"%s,omitempty\"`\n", toCamelCase(v.Name), v.Type, toSnakeCase(v.Name))
-			}
-		} else {
-			nestedStructs, err := ConvertStruct(&Structure{Name: v.Name, Attributes: v.Attributes}, IsRequest, IsResponse)
-			if err != nil {
-				return "", err
-			}
-			if IsRequest {
-				output += fmt.Sprintf("\t%s\t%sRequest\t`json:\"%s\"`\n", toCamelCase(v.Name), v.Name, toSnakeCase(v.Name))
-			}
-			if IsResponse {
-				output += fmt.Sprintf("\t%s\t%sResponse\t`json:\"%s\"`\n", toCamelCase(v.Name), v.Name, toSnakeCase(v.Name))
-			}
-			structs = append(structs, nestedStructs)
-		}
-	}
-	output += fmt.Sprintf("}")
-	if len(structs) > 0 {
-		output += "\n\n"
-	}
-	for _, v := range structs {
-		output += v
-	}
-	if len(structs) == 0 {
-		output += "\n\n"
-	}
-	return output, nil
-}
-
-// ConvertGormStruct function accepts a Structure and converts it into a string
-func ConvertGormStruct(s *Structure) (string, error) {
-	output := ""
-	output += fmt.Sprintf("type %sModel struct {\n\tModel\n", s.Name)
-
-	structs := []string{}
-	for _, v := range s.Attributes {
-		if !isValidType(v.Type) {
-			return "", fmt.Errorf("invalid type %s", v.Type)
-		}
-
-		if v.Type != "struct" {
-			if v.IsRequired {
-				output += fmt.Sprintf("\t%s %s `json:\"%s\"`\n", toCamelCase(v.Name), v.Type, toSnakeCase(v.Name))
-			} else {
-				output += fmt.Sprintf("\t%s *%s `json:\"%s,omitempty\"`\n", toCamelCase(v.Name), v.Type, toSnakeCase(v.Name))
-			}
-		} else {
-			nestedStructs, err := ConvertGormStruct(&Structure{Name: v.Name, Attributes: v.Attributes})
-			if err != nil {
-				return "", err
-			}
-			output += fmt.Sprintf("\t%sModelID\tuint\t`json:\"%s_id\"`\n", toCamelCase(v.Name), toSnakeCase(v.Name))
-			output += fmt.Sprintf("\t%s\t%sModel\t`json:\"%s\"`\n", toCamelCase(v.Name), v.Name, toSnakeCase(v.Name))
-			structs = append(structs, nestedStructs)
-		}
-	}
-	output += fmt.Sprintf("}")
-	if len(structs) > 0 {
-		output += "\n\n"
-	}
-	for _, v := range structs {
-		output += v
-	}
-	if len(structs) == 0 {
-		output += "\n\n"
-	}
-	return output, nil
-}
-
-func toCamelCase(name string) string {
-	words := strings.Split(name, " ")
-	result := ""
-
-	for _, word := range words {
-		result += strings.ToUpper(string(word[0])) + strings.ToLower(word[1:])
-	}
-
-	return result
-}
-
-func toSnakeCase(name string) string {
-	name = strings.Replace(name, " ", "_", -1)
-	name = strings.ToLower(name)
-
-	return name
-}
-
-func isValidType(fieldType string) bool {
-	validTypes := []string{
-		"string",
-		"int64",
-		"int32",
-		"int16",
-		"float64",
-		"bool",
-		"time.Time",
-		"struct",
-	}
-	for _, t := range validTypes {
-		if fieldType == t {
-			return true
-		}
-	}
-	return false
-}
 
 func main() {
 	parsedStruct, err := ParseStruct(input)
@@ -210,49 +59,110 @@ func main() {
 		os.Exit(1)
 	}
 
-	rawOutput := GenerateRequestResponseModels(parsedStruct)
-	rawOutput += "\n"
-	gormModel, err := ConvertGormStruct(parsedStruct)
-	rawOutput += gormModel
+	// Create directory
+	err = os.Mkdir(toSnakeCase(parsedStruct.Name), 0755)
 
-	outputBytes, err := format.Source([]byte(rawOutput))
-	if err != nil {
-		fmt.Println("Error:" + err.Error())
-		os.Exit(1)
-	}
-	fmt.Print(string(outputBytes))
+	GenerateRequestResponse(parsedStruct)
+	GenerateModel(parsedStruct)
+	GenerateAdaptor(parsedStruct)
 }
 
-func GenerateRequestResponseModels(parsedStruct *Structure) string {
+func GenerateAdaptor(s *Structure) string {
 	output := "package main\n\n"
+	requestToModelOutput, shouldImportImports := GenerateRequestToModel(s)
+	if shouldImportImports {
+		output += generateImports([]string{"github.com/divakarmanoj/go-scaffolding/imports"})
+	}
+	output += requestToModelOutput
+	modelToResponse, _ := GenerateModelToResponse(s)
+	output += modelToResponse
 
-	structs, err := ConvertStruct(parsedStruct, false, true)
-	if err != nil {
-		fmt.Println("Error:" + err.Error())
-		os.Exit(1)
-	}
-	output += structs
-	structs, err = ConvertStruct(parsedStruct, true, false)
-	if err != nil {
-		fmt.Println("Error:" + err.Error())
-		os.Exit(1)
-	}
-	output += structs
 	outputBytes, err := format.Source([]byte(output))
 	if err != nil {
-
+		fmt.Println(output)
+		fmt.Println("Error:" + err.Error())
+		os.Exit(1)
 	}
-	return string(outputBytes)
+	// write rawOutput to file
+	err = os.WriteFile(toSnakeCase(s.Name)+"/adaptor.go", outputBytes, 0644)
+	if err != nil {
+		fmt.Println("Error:" + err.Error())
+		os.Exit(1)
+	}
+	return output
 }
 
-func generateImports(imports []string) string {
-	if len(imports) == 0 {
-		return ""
+func GenerateModelToResponse(s *Structure) (string, bool) {
+	output := ""
+	output += fmt.Sprintf("func ModelTo%s(model *%sModel) *%sResponse {\n", s.Name, s.Name, s.Name)
+	output += fmt.Sprintf("\treturn &%sResponse{\n", s.Name)
+	nestedFunctions := []string{}
+	shouldImportImports := false
+	for _, v := range s.Attributes {
+		if !isValidType(v.Type) {
+			fmt.Println("Error: invalid type " + v.Type)
+			os.Exit(1)
+		}
+
+		if v.Type != "struct" {
+			if !v.IsRequired {
+				shouldImportImports = true
+				output += fmt.Sprintf("\t\t\t%s: imports.Null%sToPtr(model.%s),\n", toCamelCase(v.Name), strings.Title(v.Type), toCamelCase(v.Name))
+			} else {
+				output += fmt.Sprintf("\t\t%s: model.%s,\n", toCamelCase(v.Name), toCamelCase(v.Name))
+			}
+		} else {
+			nestedFunction, nestedShouldImportImports := GenerateModelToResponse(&Structure{Name: v.Name, Attributes: v.Attributes})
+			if nestedShouldImportImports {
+				shouldImportImports = true
+			}
+			nestedFunctions = append(nestedFunctions, nestedFunction)
+			output += fmt.Sprintf("\t\t%s: %s(model.%s),\n", toCamelCase(v.Name), "ModelTo"+v.Name, toCamelCase(v.Name))
+		}
 	}
-	output := "import (\n"
-	for _, v := range imports {
-		output += fmt.Sprintf("\"%s\"\n", v)
+	output += "\t}\n"
+	output += "}\n"
+
+	for _, v := range nestedFunctions {
+		output += v
 	}
-	output += ")\n\n"
-	return output
+
+	return output, shouldImportImports
+}
+
+func GenerateRequestToModel(s *Structure) (string, bool) {
+	output := ""
+	output += fmt.Sprintf("func RequestTo%s(request *%sRequest) *%sModel {\n", s.Name, s.Name, s.Name)
+	output += fmt.Sprintf("\treturn &%sModel{\n", s.Name)
+	nestedFunctions := []string{}
+	shouldImportImports := false
+	for _, v := range s.Attributes {
+		if !isValidType(v.Type) {
+			fmt.Println("Error: invalid type " + v.Type)
+			os.Exit(1)
+		}
+
+		if v.Type != "struct" {
+			if !v.IsRequired {
+				shouldImportImports = true
+				output += fmt.Sprintf("\t\t\t%s: imports.Null%sPtr(request.%s),\n", toCamelCase(v.Name), strings.Title(v.Type), toCamelCase(v.Name))
+			} else {
+				output += fmt.Sprintf("\t\t%s: request.%s,\n", toCamelCase(v.Name), toCamelCase(v.Name))
+			}
+		} else {
+			nestedFunction, nestedShouldImportImports := GenerateRequestToModel(&Structure{Name: v.Name, Attributes: v.Attributes})
+			if nestedShouldImportImports {
+				shouldImportImports = true
+			}
+			nestedFunctions = append(nestedFunctions, nestedFunction)
+			output += fmt.Sprintf("\t\t%s: RequestTo%s(request.%s),\n", toCamelCase(v.Name), v.Name, toCamelCase(v.Name))
+		}
+	}
+	output += fmt.Sprintf("\t}\n")
+	output += fmt.Sprintf("}\n")
+
+	for _, v := range nestedFunctions {
+		output += v
+	}
+	return output, shouldImportImports
 }
