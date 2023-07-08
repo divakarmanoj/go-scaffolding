@@ -15,7 +15,10 @@ func ConvertStruct(s *Structure, IsRequest bool, IsResponse bool) (string, error
 	if IsRequest {
 		output += fmt.Sprintf("type %sRequest struct {\n", s.Name)
 	} else if IsResponse {
-		output += fmt.Sprintf("type %sResponse struct {\n\timports.Response\n", s.Name)
+		output += fmt.Sprintf("type %sResponse struct {\n", s.Name)
+		output += "\tID\tuint\t`json:\"id\"`\n"
+		output += "\tCreatedAt\tint64\t`json:\"created_at\"`\n"
+		output += "\tUpdatedAt\tint64\t`json:\"updated_at\"`\n"
 
 	} else {
 		output += fmt.Sprintf("type %s struct {\n", s.Name)
@@ -62,7 +65,6 @@ func ConvertStruct(s *Structure, IsRequest bool, IsResponse bool) (string, error
 
 func GenerateRequestResponse(parsedStruct *Structure) string {
 	output := "package main\n\n"
-	output += generateImports([]string{"github.com/divakarmanoj/go-scaffolding/imports"})
 
 	structs, err := ConvertStruct(parsedStruct, false, true)
 	if err != nil {

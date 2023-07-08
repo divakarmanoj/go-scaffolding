@@ -3,14 +3,17 @@ package main
 import (
 	"database/sql"
 	imports "github.com/divakarmanoj/go-scaffolding/imports"
+	"gorm.io/gorm"
 )
 
-type UserModel struct {
+var db *gorm.DB
+
+type SuperModel struct {
 	imports.Model
-	Name           sql.NullString `json:"name"`
-	Age            int16          `json:"age"`
-	AddressModelID uint           `json:"address_id"`
-	Address        *AddressModel  `json:"address"`
+	Name      sql.NullString `json:"name"`
+	Age       int16          `json:"age"`
+	AddressID uint           `json:"address_id"`
+	Address   *AddressModel  `json:"address"`
 }
 
 type AddressModel struct {
