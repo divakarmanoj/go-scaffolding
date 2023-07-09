@@ -39,9 +39,9 @@ func NullInt16Ptr(Int16 *int16) sql.NullInt16 {
 
 func NullInt64Ptr(Int64 *int64) sql.NullInt64 {
 	if Int64 != nil {
-		return sql.NullInt64{*Int64, true}
+		return sql.NullInt64{Int64: *Int64, Valid: true}
 	} else {
-		return sql.NullInt64{0, false}
+		return sql.NullInt64{}
 	}
 }
 

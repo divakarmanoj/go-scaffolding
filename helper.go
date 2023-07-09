@@ -2,8 +2,8 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"strings"
+	"unicode"
 )
 
 // ParseStruct function accepts a string and tries to parse it into a Struct
@@ -26,6 +26,46 @@ func toCamelCase(name string) string {
 	}
 
 	return result
+}
+
+func toTitleCase(s string) string {
+	// Use a closure here to remember state.
+	// Hackish but effective. Depends on Map scanning in order and calling
+	// the closure once per rune.
+	prev := ' '
+	return strings.Map(
+		func(r rune) rune {
+			if isSeparator(prev) {
+				prev = r
+				return unicode.ToTitle(r)
+			}
+			prev = r
+			return r
+		},
+		s)
+}
+
+func isSeparator(r rune) bool {
+	// ASCII alphanumerics and underscore are not separators
+	if r <= 0x7F {
+		switch {
+		case '0' <= r && r <= '9':
+			return false
+		case 'a' <= r && r <= 'z':
+			return false
+		case 'A' <= r && r <= 'Z':
+			return false
+		case r == '_':
+			return false
+		}
+		return true
+	}
+	// Letters and digits are not separators
+	if unicode.IsLetter(r) || unicode.IsDigit(r) {
+		return false
+	}
+	// Otherwise, all we can do for now is treat spaces as separators.
+	return unicode.IsSpace(r)
 }
 
 func toSnakeCase(name string) string {
@@ -52,24 +92,4 @@ func isValidType(fieldType string) bool {
 		}
 	}
 	return false
-}
-
-func generateImports(imports []string) string {
-	if len(imports) == 0 {
-		return ""
-	}
-	output := "import (\n"
-	for _, v := range imports {
-		if strings.Contains(v, "-") {
-			packageSplit := strings.Split(v, "/")
-			pakageName := packageSplit[len(packageSplit)-1]
-			// replace - with _
-			pakageName = strings.Replace(pakageName, "-", "_", -1)
-			output += fmt.Sprintf("%s \"%s\"\n", pakageName, v)
-		} else {
-			output += fmt.Sprintf("\"%s\"\n", v)
-		}
-	}
-	output += ")\n\n"
-	return output
 }

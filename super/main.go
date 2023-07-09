@@ -1,14 +1,17 @@
 package main
 
 import (
-	"gorm.io/driver/sqlite"
-	"gorm.io/gorm"
+	sqlite "gorm.io/driver/sqlite"
+	gorm "gorm.io/gorm"
 	"net/http"
 	"os"
 )
 
+var db *gorm.DB
+
 func main() {
 	var err error
+
 	db, err = gorm.Open(sqlite.Open("Super.db"), &gorm.Config{})
 	if err != nil {
 		panic("failed to connect database")
@@ -19,6 +22,7 @@ func main() {
 			return
 		}
 	}()
+
 	db.AutoMigrate(&SuperModel{})
 	db.AutoMigrate(&AddressModel{})
 

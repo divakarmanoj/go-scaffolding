@@ -2,92 +2,74 @@ package main
 
 import (
 	"fmt"
+	"github.com/dave/jennifer/jen"
 	"go/format"
 	"os"
 )
 
-// ConvertStruct function accepts a Structure and converts it into a string
-func ConvertStruct(s *Structure, IsRequest bool, IsResponse bool) (string, error) {
-	output := ""
-	if IsRequest && IsResponse {
-		return "", fmt.Errorf("cannot be both request and response")
-	}
-	if IsRequest {
-		output += fmt.Sprintf("type %sRequest struct {\n", s.Name)
-	} else if IsResponse {
-		output += fmt.Sprintf("type %sResponse struct {\n", s.Name)
-		output += "\tID\tuint\t`json:\"id\"`\n"
-		output += "\tCreatedAt\tint64\t`json:\"created_at\"`\n"
-		output += "\tUpdatedAt\tint64\t`json:\"updated_at\"`\n"
-
-	} else {
-		output += fmt.Sprintf("type %s struct {\n", s.Name)
-	}
-
-	structs := []string{}
-	for _, v := range s.Attributes {
-		if !isValidType(v.Type) {
-			return "", fmt.Errorf("invalid type %s", v.Type)
-		}
-
-		if v.Type != "struct" {
-			if v.IsRequired {
-				output += fmt.Sprintf("\t%s\t%s\t`json:\"%s\"`\n", toCamelCase(v.Name), v.Type, toSnakeCase(v.Name))
-			} else {
-				output += fmt.Sprintf("\t%s\t*%s\t`json:\"%s,omitempty\"`\n", toCamelCase(v.Name), v.Type, toSnakeCase(v.Name))
-			}
-		} else {
-			nestedStructs, err := ConvertStruct(&Structure{Name: v.Name, Attributes: v.Attributes}, IsRequest, IsResponse)
-			if err != nil {
-				return "", err
-			}
-			if IsRequest {
-				output += fmt.Sprintf("\t%s\t*%sRequest\t`json:\"%s\"`\n", toCamelCase(v.Name), v.Name, toSnakeCase(v.Name))
-			}
-			if IsResponse {
-				output += fmt.Sprintf("\t%s\t*%sResponse\t`json:\"%s\"`\n", toCamelCase(v.Name), v.Name, toSnakeCase(v.Name))
-			}
-			structs = append(structs, nestedStructs)
-		}
-	}
-	output += fmt.Sprintf("}")
-	if len(structs) > 0 {
-		output += "\n\n"
-	}
-	for _, v := range structs {
-		output += v
-	}
-	if len(structs) == 0 {
-		output += "\n\n"
-	}
-	return output, nil
-}
-
-func GenerateRequestResponse(parsedStruct *Structure) string {
-	output := "package main\n\n"
-
-	structs, err := ConvertStruct(parsedStruct, false, true)
-	if err != nil {
-		fmt.Println("Error:" + err.Error())
-		os.Exit(1)
-	}
-	output += structs
-	structs, err = ConvertStruct(parsedStruct, true, false)
-	if err != nil {
-		fmt.Println("Error:" + err.Error())
-		os.Exit(1)
-	}
-	output += structs
+func GenerateRequestResponse(s *Structure) {
+	f := jen.NewFile("main")
+	GenerateResponseStruct(s, f)
+	GenerateRequestStruct(s, f)
+	output := fmt.Sprintf("%#v", f)
 	outputBytes, err := format.Source([]byte(output))
 	if err != nil {
 		fmt.Println("Error:" + err.Error())
 		os.Exit(1)
 	}
 	// write rawOutput to file
-	err = os.WriteFile(toSnakeCase(parsedStruct.Name)+"/requestResponse.go", outputBytes, 0644)
+	err = os.WriteFile(toSnakeCase(s.Name)+"/requestResponse.go", outputBytes, 0644)
 	if err != nil {
 		fmt.Println("Error:" + err.Error())
 		os.Exit(1)
 	}
-	return string(outputBytes)
+}
+
+func GenerateRequestStruct(s *Structure, f *jen.File) {
+	f.Type().Id(s.Name + "Request").StructFunc(func(g *jen.Group) {
+		for _, attr := range s.Attributes {
+			if !isValidType(attr.Type) {
+				fmt.Printf("Error: Invalid type %s\n", attr.Type)
+				os.Exit(1)
+			}
+			if attr.Type != "struct" {
+				if attr.IsRequired {
+					g.Id(toCamelCase(attr.Name)).Id(attr.Type).Tag(map[string]string{"json": toSnakeCase(attr.Name)})
+				} else {
+					g.Id(toCamelCase(attr.Name)).Id("*" + attr.Type).Tag(map[string]string{"json": toSnakeCase(attr.Name) + ",omitempty"})
+				}
+			} else {
+				f.Line()
+				GenerateRequestStruct(&Structure{Name: attr.Name, Attributes: attr.Attributes}, f)
+				g.Id(toCamelCase(attr.Name)).Id("*" + attr.Name + "Request").Tag(map[string]string{"json": toSnakeCase(attr.Name)})
+			}
+		}
+	})
+	f.Line()
+}
+
+func GenerateResponseStruct(s *Structure, f *jen.File) {
+	f.Type().Id(s.Name + "Response").StructFunc(func(g *jen.Group) {
+		g.Id("ID").Id("uint").Tag(map[string]string{"json": "id"})
+		g.Id("CreatedAt").Id("int64").Tag(map[string]string{"json": "created_at"})
+		g.Id("UpdatedAt").Id("int64").Tag(map[string]string{"json": "updated_at"})
+		for _, attr := range s.Attributes {
+			if !isValidType(attr.Type) {
+				fmt.Printf("Error: Invalid type %s\n", attr.Type)
+				os.Exit(1)
+			}
+			if attr.Type != "struct" {
+				if attr.IsRequired {
+					g.Id(toCamelCase(attr.Name)).Id(attr.Type).Tag(map[string]string{"json": toSnakeCase(attr.Name)})
+				} else {
+					g.Id(toCamelCase(attr.Name)).Id("*" + attr.Type).Tag(map[string]string{"json": toSnakeCase(attr.Name) + ",omitempty"})
+				}
+			} else {
+				f.Line()
+				GenerateResponseStruct(&Structure{Name: attr.Name, Attributes: attr.Attributes}, f)
+				g.Id(toCamelCase(attr.Name)).Id("*" + attr.Name + "Response").Tag(map[string]string{"json": toSnakeCase(attr.Name)})
+			}
+		}
+	})
+	f.Line()
 }

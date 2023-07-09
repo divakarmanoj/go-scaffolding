@@ -2,11 +2,8 @@ package main
 
 import (
 	"database/sql"
-	imports "github.com/divakarmanoj/go-scaffolding/imports"
-	"gorm.io/gorm"
+	"github.com/divakarmanoj/go-scaffolding/imports"
 )
-
-var db *gorm.DB
 
 type SuperModel struct {
 	imports.Model

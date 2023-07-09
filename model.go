@@ -6,3 +6,8 @@ type Attributes struct {
 	Attributes []Attributes `json:"attributes"`
 	IsRequired bool         `json:"is_required"`
 }
+
+type Structure struct {
+	Name       string       `json:"name"`
+	Attributes []Attributes `json:"attributes"`
+}

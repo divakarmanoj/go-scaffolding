@@ -2,7 +2,8 @@ package main
 
 import (
 	"encoding/json"
-	imports "github.com/divakarmanoj/go-scaffolding/imports"
+	"github.com/divakarmanoj/go-scaffolding/imports"
+	"gorm.io/gorm/clause"
 	"net/http"
 	"strconv"
 )
@@ -21,26 +22,30 @@ func CreateSuper(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	json.NewEncoder(w).Encode(Super)
+	var output = imports.Response{
+		Data:    ModelToSuper(model),
+		Message: "Super created successfully",
+		Status:  "success",
+	}
+	json.NewEncoder(w).Encode(output)
 }
 
 func ReadSuper(w http.ResponseWriter, r *http.Request) {
-	page_numbers, ok := r.URL.Query()["page_number"]
-	page_number := 1
-	if ok && len(page_numbers[0]) > 1 {
-		var err error
-		page_number, err = strconv.Atoi(page_numbers[0])
+	var err error
+	pageNumbers, ok := r.URL.Query()["page_number"]
+	pageNumber := 1
+	if ok && len(pageNumbers[0]) > 1 {
+		pageNumber, err = strconv.Atoi(pageNumbers[0])
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 	}
 
-	page_sizes, ok := r.URL.Query()["page_size"]
-	page_size := 10
-	if ok && len(page_sizes[0]) > 1 {
-		var err error
-		page_size, err = strconv.Atoi(page_sizes[0])
+	pageSizes, ok := r.URL.Query()["page_size"]
+	pageSize := 10
+	if ok && len(pageSizes[0]) > 1 {
+		pageSize, err = strconv.Atoi(pageSizes[0])
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
@@ -48,52 +53,56 @@ func ReadSuper(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var Super []SuperModel
-	if err := db.Limit(page_size).Offset((page_number - 1) * page_size).Find(&Super).Error; err != nil {
+	err = db.Limit(pageSize).Offset(pageSize * (pageNumber - 1)).Preload(clause.Associations).Find(&Super).Error
+	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	var data []*SuperResponse
-	for i, _ := range Super {
-		data = append(data, ModelToSuper(&Super[i]))
+	for _, i := range Super {
+		data = append(data, ModelToSuper(&i))
 	}
 	var output = imports.Response{
 		Data:    data,
+		Message: "Supers retrieved successfully",
 		Status:  "success",
-		Message: "",
 	}
-
 	json.NewEncoder(w).Encode(output)
 }
 
 func UpdateSuper(w http.ResponseWriter, r *http.Request) {
 	ids, ok := r.URL.Query()["id"]
 	if !ok || len(ids[0]) < 1 {
-		http.Error(w, "Url Param 'id' is missing", http.StatusBadRequest)
+		http.Error(w, "id is required", http.StatusBadRequest)
 		return
 	}
 	id := ids[0]
 
 	var Super SuperRequest
-	err := json.NewDecoder(r.Body).Decode(&Super)
-	if err != nil {
+	if err := json.NewDecoder(r.Body).Decode(&Super); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	model := RequestToSuper(&Super)
-	if err := db.Model(&model).Where("id = ?", id).Updates(model).Error; err != nil {
+	if err := db.Model(&model).Where("id = ?", id).Updates(&model).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	json.NewEncoder(w).Encode(Super)
+	var output = imports.Response{
+		Data:    ModelToSuper(model),
+		Message: "Super updated successfully",
+		Status:  "success",
+	}
+	json.NewEncoder(w).Encode(output)
 }
 
 func DeleteSuper(w http.ResponseWriter, r *http.Request) {
 	ids, ok := r.URL.Query()["id"]
 	if !ok || len(ids[0]) < 1 {
-		http.Error(w, "Url Param 'id' is missing", http.StatusBadRequest)
+		http.Error(w, "id is required", http.StatusBadRequest)
 		return
 	}
 	id := ids[0]
@@ -101,5 +110,10 @@ func DeleteSuper(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	json.NewEncoder(w).Encode(imports.Response{Message: "Super deleted successfully", Status: "success"})
+
+	var output = imports.Response{
+		Message: "Super deleted successfully",
+		Status:  "success",
+	}
+	json.NewEncoder(w).Encode(output)
 }

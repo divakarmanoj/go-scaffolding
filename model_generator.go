@@ -2,23 +2,16 @@ package main
 
 import (
 	"fmt"
+	"github.com/dave/jennifer/jen"
 	"go/format"
 	"os"
-	"strings"
 )
 
 func GenerateModel(s *Structure) (string, []string) {
-	output := "package main\n\n"
-	imports := []string{"github.com/divakarmanoj/go-scaffolding/imports", "gorm.io/gorm"}
-	modelOutput, importSQL, modelNames := ConvertGormStruct(s)
-
-	if importSQL {
-		imports = append(imports, "database/sql")
-	}
-	output += generateImports(imports)
-
-	output += "\n\nvar db *gorm.DB\n\n"
-	output += modelOutput
+	f := jen.NewFile("main")
+	f.ImportName("github.com/divakarmanoj/go-scaffolding/imports", "imports")
+	modelNames := GormStruct(s, f)
+	output := fmt.Sprintf("%#v", f)
 	outputBytes, err := format.Source([]byte(output))
 	if err != nil {
 		fmt.Println(output)
@@ -34,46 +27,30 @@ func GenerateModel(s *Structure) (string, []string) {
 	return output, modelNames
 }
 
-// ConvertGormStruct function accepts a Structure and converts it into a string
-func ConvertGormStruct(s *Structure) (string, bool, []string) {
-	output := ""
-	output += fmt.Sprintf("type %sModel struct {\n\timports.Model\n", s.Name)
-	importSQL := false
-	structs := []string{}
+func GormStruct(s *Structure, f *jen.File) []string {
 	modelNames := []string{s.Name + "Model"}
-	for _, v := range s.Attributes {
-		if !isValidType(v.Type) {
-			fmt.Println("Error: invalid type %s", v.Type)
-			os.Exit(1)
-		}
-
-		if v.Type != "struct" {
-			if v.IsRequired {
-				output += fmt.Sprintf("\t%s %s `json:\"%s\"`\n", toCamelCase(v.Name), v.Type, toSnakeCase(v.Name))
+	f.Type().Id(s.Name + "Model").StructFunc(func(g *jen.Group) {
+		g.Qual("github.com/divakarmanoj/go-scaffolding/imports", "Model")
+		for _, attr := range s.Attributes {
+			if !isValidType(attr.Type) {
+				fmt.Printf("Error: Invalid type %s\n", attr.Type)
+				os.Exit(1)
+			}
+			if attr.Type != "struct" {
+				if attr.IsRequired {
+					g.Id(toCamelCase(attr.Name)).Id(attr.Type).Tag(map[string]string{"json": toSnakeCase(attr.Name)})
+				} else {
+					g.Id(toCamelCase(attr.Name)).Qual("database/sql", "Null"+toTitleCase(attr.Type)).Tag(map[string]string{"json": toSnakeCase(attr.Name)})
+				}
 			} else {
-				importSQL = true
-				output += fmt.Sprintf("\t%s sql.Null%s `json:\"%s\"`\n", toCamelCase(v.Name), strings.Title(v.Type), toSnakeCase(v.Name))
+				f.Line()
+				NestedModelNames := GormStruct(&Structure{Name: attr.Name, Attributes: attr.Attributes}, f)
+				modelNames = append(modelNames, NestedModelNames...)
+				g.Id(toCamelCase(attr.Name) + "ID").Id("uint").Tag(map[string]string{"json": toSnakeCase(attr.Name) + "_id"})
+				g.Id(toCamelCase(attr.Name)).Id("*" + attr.Name + "Model").Tag(map[string]string{"json": toSnakeCase(attr.Name)})
 			}
-		} else {
-			nestedStructs, nestedImportSQL, NestedModelNames := ConvertGormStruct(&Structure{Name: v.Name, Attributes: v.Attributes})
-			modelNames = append(modelNames, NestedModelNames...)
-			if nestedImportSQL {
-				importSQL = true
-			}
-			output += fmt.Sprintf("\t%sID\tuint\t`json:\"%s_id\"`\n", toCamelCase(v.Name), toSnakeCase(v.Name))
-			output += fmt.Sprintf("\t%s\t*%sModel\t`json:\"%s\"`\n", toCamelCase(v.Name), v.Name, toSnakeCase(v.Name))
-			structs = append(structs, nestedStructs)
 		}
-	}
-	output += fmt.Sprintf("}")
-	if len(structs) > 0 {
-		output += "\n\n"
-	}
-	for _, v := range structs {
-		output += v
-	}
-	if len(structs) == 0 {
-		output += "\n\n"
-	}
-	return output, importSQL, modelNames
+	})
+	f.Line()
+	return modelNames
 }
