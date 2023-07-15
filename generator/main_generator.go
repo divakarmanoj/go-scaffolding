@@ -1,4 +1,4 @@
-package main
+package generator
 
 import (
 	"fmt"
@@ -7,7 +7,7 @@ import (
 	"os"
 )
 
-func GenerateMain(parsedStruct *Structure, modelnames []string) {
+func GenerateMain(parsedStruct *Config, modelnames []string, outputDir string) {
 	f := NewFile("main")
 
 	f.Var().Id("db").Op("*").Qual("gorm.io/gorm", "DB")
@@ -20,7 +20,7 @@ func GenerateMain(parsedStruct *Structure, modelnames []string) {
 		// Open the database connection
 		mainBlock.List(Id("db"), Id("err")).Op("=").Qual("gorm.io/gorm", "Open").Call(
 			Qual("gorm.io/driver/sqlite", "Open").Call(
-				Lit(toCamelCase(parsedStruct.Name)+".db")),
+				Lit(parsedStruct.camelCase+".db")),
 			Op("&").Qual("gorm.io/gorm", "Config").Values(),
 		)
 		mainBlock.If(Id("err").Op("!=").Nil()).Block(
@@ -28,7 +28,7 @@ func GenerateMain(parsedStruct *Structure, modelnames []string) {
 		)
 		mainBlock.Defer().Func().Params().Block(
 			Id("err").Op("=").Qual("os", "RemoveAll").Call(
-				Lit(toCamelCase(parsedStruct.Name)+".db"),
+				Lit(parsedStruct.camelCase+".db"),
 			),
 			If(Id("err").Op("!=").Nil()).Block(
 				Return(),
@@ -44,20 +44,20 @@ func GenerateMain(parsedStruct *Structure, modelnames []string) {
 
 		// Handle HTTP routes
 		mainBlock.Qual("net/http", "HandleFunc").Call(
-			Lit("/"+toSnakeCase(parsedStruct.Name)+"/read"),
-			Id("Read"+toCamelCase(parsedStruct.Name)),
+			Lit("/"+ToSnakeCase(parsedStruct.Name)+"/read"),
+			Id("Read"+parsedStruct.camelCase),
 		)
 		mainBlock.Qual("net/http", "HandleFunc").Call(
-			Lit("/"+toSnakeCase(parsedStruct.Name)+"/create"),
-			Id("Create"+toCamelCase(parsedStruct.Name)),
+			Lit("/"+ToSnakeCase(parsedStruct.Name)+"/create"),
+			Id("Create"+parsedStruct.camelCase),
 		)
 		mainBlock.Qual("net/http", "HandleFunc").Call(
-			Lit("/"+toSnakeCase(parsedStruct.Name)+"/update"),
-			Id("Update"+toCamelCase(parsedStruct.Name)),
+			Lit("/"+ToSnakeCase(parsedStruct.Name)+"/update"),
+			Id("Update"+parsedStruct.camelCase),
 		)
 		mainBlock.Qual("net/http", "HandleFunc").Call(
-			Lit("/"+toSnakeCase(parsedStruct.Name)+"/delete"),
-			Id("Delete"+toCamelCase(parsedStruct.Name)),
+			Lit("/"+ToSnakeCase(parsedStruct.Name)+"/delete"),
+			Id("Delete"+parsedStruct.camelCase),
 		)
 		mainBlock.Err().Op("=").Qual("net/http", "ListenAndServe").Call(
 			Lit(":3333"),
@@ -75,7 +75,7 @@ func GenerateMain(parsedStruct *Structure, modelnames []string) {
 		os.Exit(1)
 	}
 	// write rawOutput to file
-	err = os.WriteFile(toSnakeCase(parsedStruct.Name)+"/main.go", outputBytes, 0644)
+	err = os.WriteFile(outputDir+ToSnakeCase(parsedStruct.Name)+"/main.go", outputBytes, 0644)
 	if err != nil {
 		fmt.Println("Error:" + err.Error())
 		os.Exit(1)

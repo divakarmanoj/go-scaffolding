@@ -24,7 +24,7 @@ func CreateSuper(w http.ResponseWriter, r *http.Request) {
 
 	var output = imports.Response{
 		Data:    ModelToSuper(model),
-		Message: "Super created successfully",
+		Message: "super created successfully",
 		Status:  "success",
 	}
 	json.NewEncoder(w).Encode(output)
@@ -65,7 +65,7 @@ func ReadSuper(w http.ResponseWriter, r *http.Request) {
 	}
 	var output = imports.Response{
 		Data:    data,
-		Message: "Supers retrieved successfully",
+		Message: "supers retrieved successfully",
 		Status:  "success",
 	}
 	json.NewEncoder(w).Encode(output)
@@ -93,7 +93,7 @@ func UpdateSuper(w http.ResponseWriter, r *http.Request) {
 
 	var output = imports.Response{
 		Data:    ModelToSuper(model),
-		Message: "Super updated successfully",
+		Message: "super updated successfully",
 		Status:  "success",
 	}
 	json.NewEncoder(w).Encode(output)
@@ -112,7 +112,7 @@ func DeleteSuper(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var output = imports.Response{
-		Message: "Super deleted successfully",
+		Message: "super deleted successfully",
 		Status:  "success",
 	}
 	json.NewEncoder(w).Encode(output)

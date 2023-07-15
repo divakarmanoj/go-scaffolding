@@ -1,0 +1,24 @@
+---
+name: super
+attributes:
+  - name: name
+    type: string
+    is_required: false
+  - name: age
+    type: int16
+    is_required: true
+  - name: address
+    type: struct
+    attributes:
+      - name: street_name
+        type: string
+        is_required: true
+      - name: city
+        type: string
+        is_required: true
+      - name: state
+        type: string
+        is_required: false
+      - name: zip
+        type: int16
+        is_required: true

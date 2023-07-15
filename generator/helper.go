@@ -1,26 +1,43 @@
-package main
+package generator
 
 import (
 	"encoding/json"
+	"gopkg.in/yaml.v3"
+	"os"
 	"strings"
 	"unicode"
 )
 
 // ParseStruct function accepts a string and tries to parse it into a Struct
-func ParseStruct(s string) (*Structure, error) {
-	var Data Structure
+func ParseStruct(s string) (*Config, error) {
+	var Data Config
 
-	err := json.Unmarshal([]byte(s), &Data)
+	err := yaml.Unmarshal([]byte(s), &Data)
 	if err != nil {
+		err := json.Unmarshal([]byte(s), &Data)
+		if err != nil {
+			return nil, err
+		}
 		return nil, err
 	}
 	return &Data, nil
 }
 
-func toCamelCase(name string) string {
-	words := strings.Split(name, " ")
-	result := ""
+func ParseStructFromFileName(fileName string) (*Config, error) {
+	// Read the file
+	dat, err := os.ReadFile(fileName)
+	if err != nil {
+		return nil, err
+	}
+	return ParseStruct(string(dat))
+}
 
+func toCamelCase(name string) string {
+	words := strings.Split(name, "_")
+	result := ""
+	if name == "" {
+		return name
+	}
 	for _, word := range words {
 		result += strings.ToUpper(string(word[0])) + strings.ToLower(word[1:])
 	}
@@ -68,7 +85,7 @@ func isSeparator(r rune) bool {
 	return unicode.IsSpace(r)
 }
 
-func toSnakeCase(name string) string {
+func ToSnakeCase(name string) string {
 	name = strings.Replace(name, " ", "_", -1)
 	name = strings.ToLower(name)
 

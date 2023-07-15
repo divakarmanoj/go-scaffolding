@@ -1,4 +1,4 @@
-package main
+package generator
 
 import (
 	"fmt"
@@ -7,7 +7,7 @@ import (
 	"os"
 )
 
-func GenerateHandler(s *Structure) {
+func GenerateHandler(s *Config, outputDir string) {
 	f := NewFile("main")
 	f.ImportName("github.com/divakarmanoj/go-scaffolding/imports", "imports")
 	f.ImportName("gorm.io/gorm/clause", "clause")
@@ -26,22 +26,22 @@ func GenerateHandler(s *Structure) {
 		os.Exit(1)
 	}
 	// write rawOutput to file
-	err = os.WriteFile(toSnakeCase(s.Name)+"/handler.go", outputBytes, 0644)
+	err = os.WriteFile(outputDir+ToSnakeCase(s.Name)+"/handler.go", outputBytes, 0644)
 	if err != nil {
 		fmt.Println("Error:" + err.Error())
 		os.Exit(1)
 	}
 }
 
-func remove(parsedStruct *Structure, f *File) *Statement {
-	return f.Func().Id("Delete"+parsedStruct.Name).Params(Id("w").Qual("net/http", "ResponseWriter"), Id("r").Op("*").Qual("net/http", "Request")).BlockFunc(func(mainBlock *Group) {
+func remove(parsedStruct *Config, f *File) *Statement {
+	return f.Func().Id("Delete"+parsedStruct.camelCase).Params(Id("w").Qual("net/http", "ResponseWriter"), Id("r").Op("*").Qual("net/http", "Request")).BlockFunc(func(mainBlock *Group) {
 		mainBlock.List(Id("ids"), Id("ok")).Op(":=").Id("r").Dot("URL").Dot("Query").Call().Index(Lit("id"))
 		mainBlock.If(Op("!").Id("ok").Op("||").Len(Id("ids").Index(Lit(0))).Op("<").Lit(1)).BlockFunc(func(ifBlock *Group) {
 			ifBlock.Qual("net/http", "Error").Call(Id("w"), Lit("id is required"), Qual("net/http", "StatusBadRequest"))
 			ifBlock.Return()
 		})
 		mainBlock.Id("id").Op(":=").Id("ids").Index(Lit(0))
-		mainBlock.If(Id("err").Op(":=").Id("db").Dot("Delete").Call(Op("&").Id(toCamelCase(parsedStruct.Name)+"Model{}"), Id("id")).Dot("Error").Id(";").Id("err").Op("!=").Nil()).BlockFunc(func(ifBlock *Group) {
+		mainBlock.If(Id("err").Op(":=").Id("db").Dot("Delete").Call(Op("&").Id(parsedStruct.camelCase+"Model{}"), Id("id")).Dot("Error").Id(";").Id("err").Op("!=").Nil()).BlockFunc(func(ifBlock *Group) {
 			ifBlock.Qual("net/http", "Error").Call(Id("w"), Id("err").Dot("Error").Call(), Qual("net/http", "StatusBadRequest"))
 			ifBlock.Return()
 		})
@@ -54,8 +54,8 @@ func remove(parsedStruct *Structure, f *File) *Statement {
 	})
 }
 
-func update(parsedStruct *Structure, f *File) *Statement {
-	return f.Func().Id("Update"+parsedStruct.Name).Params(Id("w").Qual("net/http", "ResponseWriter"), Id("r").Op("*").Qual("net/http", "Request")).BlockFunc(func(mainBlock *Group) {
+func update(parsedStruct *Config, f *File) *Statement {
+	return f.Func().Id("Update"+parsedStruct.camelCase).Params(Id("w").Qual("net/http", "ResponseWriter"), Id("r").Op("*").Qual("net/http", "Request")).BlockFunc(func(mainBlock *Group) {
 		mainBlock.List(Id("ids"), Id("ok")).Op(":=").Id("r").Dot("URL").Dot("Query").Call().Index(Lit("id"))
 		mainBlock.If(Op("!").Id("ok").Op("||").Len(Id("ids").Index(Lit(0))).Op("<").Lit(1)).BlockFunc(func(ifBlock *Group) {
 			ifBlock.Qual("net/http", "Error").Call(Id("w"), Lit("id is required"), Qual("net/http", "StatusBadRequest"))
@@ -63,20 +63,20 @@ func update(parsedStruct *Structure, f *File) *Statement {
 		})
 		mainBlock.Id("id").Op(":=").Id("ids").Index(Lit(0))
 		mainBlock.Line()
-		mainBlock.Var().Id(toCamelCase(parsedStruct.Name)).Id(toCamelCase(parsedStruct.Name) + "Request")
-		mainBlock.If(Id("err").Op(":=").Qual("encoding/json", "NewDecoder").Call(Id("r").Dot("Body")).Dot("Decode").Call(Op("&").Id(toCamelCase(parsedStruct.Name))).Op(";").Id("err").Op("!=").Nil()).BlockFunc(func(ifBlock *Group) {
+		mainBlock.Var().Id(parsedStruct.camelCase).Id(parsedStruct.camelCase + "Request")
+		mainBlock.If(Id("err").Op(":=").Qual("encoding/json", "NewDecoder").Call(Id("r").Dot("Body")).Dot("Decode").Call(Op("&").Id(parsedStruct.camelCase)).Op(";").Id("err").Op("!=").Nil()).BlockFunc(func(ifBlock *Group) {
 			ifBlock.Qual("net/http", "Error").Call(Id("w"), Id("err").Dot("Error").Call(), Qual("net/http", "StatusBadRequest"))
 			ifBlock.Return()
 		})
 		mainBlock.Line()
-		mainBlock.Id("model").Op(":=").Id("RequestTo" + toCamelCase(parsedStruct.Name)).Call(Op("&").Id(toCamelCase(parsedStruct.Name)))
+		mainBlock.Id("model").Op(":=").Id("RequestTo" + parsedStruct.camelCase).Call(Op("&").Id(parsedStruct.camelCase))
 		mainBlock.If(Id("err").Op(":=").Id("db").Dot("Model").Call(Op("&").Id("model")).Dot("Where").Call(Id("\"id = ?\""), Id("id")).Dot("Updates").Call(Op("&").Id("model")).Dot("Error").Id(";").Id("err").Op("!=").Nil()).BlockFunc(func(ifBlock *Group) {
 			ifBlock.Qual("net/http", "Error").Call(Id("w"), Id("err").Dot("Error").Call(), Qual("net/http", "StatusBadRequest"))
 			ifBlock.Return()
 		})
 		mainBlock.Line()
 		mainBlock.Var().Id("output").Op("=").Qual("github.com/divakarmanoj/go-scaffolding/imports", "Response").Values(Dict{
-			Id("Data"):    Id("ModelTo" + toCamelCase(parsedStruct.Name)).Call(Id("model")),
+			Id("Data"):    Id("ModelTo" + parsedStruct.camelCase).Call(Id("model")),
 			Id("Status"):  Id("\"success\""),
 			Id("Message"): Lit(parsedStruct.Name + " updated successfully"),
 		})
@@ -84,8 +84,8 @@ func update(parsedStruct *Structure, f *File) *Statement {
 	})
 }
 
-func read(parsedStruct *Structure, f *File) *Statement {
-	return f.Func().Id("Read"+parsedStruct.Name).Params(Id("w").Qual("net/http", "ResponseWriter"), Id("r").Op("*").Qual("net/http", "Request")).BlockFunc(func(mainBlock *Group) {
+func read(parsedStruct *Config, f *File) *Statement {
+	return f.Func().Id("Read"+parsedStruct.camelCase).Params(Id("w").Qual("net/http", "ResponseWriter"), Id("r").Op("*").Qual("net/http", "Request")).BlockFunc(func(mainBlock *Group) {
 		mainBlock.Var().Id("err").Error()
 		mainBlock.List(Id("pageNumbers"), Id("ok")).Op(":=").Id("r").Dot("URL").Dot("Query").Call().Index(Lit("page_number"))
 		mainBlock.Id("pageNumber").Op(":=").Lit(1)
@@ -107,16 +107,16 @@ func read(parsedStruct *Structure, f *File) *Statement {
 			})
 		})
 		mainBlock.Line()
-		mainBlock.Var().Id(parsedStruct.Name).Index().Id(parsedStruct.Name + "Model")
-		mainBlock.Id("err").Op("=").Id("db").Dot("Limit").Call(Id("pageSize")).Dot("Offset").Call(Id("pageSize").Op("*").Parens(Id("pageNumber").Op("-").Lit(1))).Dot("Preload").Call(Qual("gorm.io/gorm/clause", "Associations")).Dot("Find").Call(Op("&").Id(parsedStruct.Name)).Dot("Error")
+		mainBlock.Var().Id(parsedStruct.camelCase).Index().Id(parsedStruct.camelCase + "Model")
+		mainBlock.Id("err").Op("=").Id("db").Dot("Limit").Call(Id("pageSize")).Dot("Offset").Call(Id("pageSize").Op("*").Parens(Id("pageNumber").Op("-").Lit(1))).Dot("Preload").Call(Qual("gorm.io/gorm/clause", "Associations")).Dot("Find").Call(Op("&").Id(parsedStruct.camelCase)).Dot("Error")
 		mainBlock.If(Id("err").Op("!=").Nil()).BlockFunc(func(ifBlock *Group) {
 			ifBlock.Qual("net/http", "Error").Call(Id("w"), Id("err").Dot("Error").Call(), Qual("net/http", "StatusBadRequest"))
 			ifBlock.Return()
 		})
 		mainBlock.Line()
-		mainBlock.Var().Id("data").Index().Op("*").Id(toCamelCase(parsedStruct.Name) + "Response")
-		mainBlock.For(List(Id("_"), Id("i")).Op(":=").Range().Id(toCamelCase(parsedStruct.Name))).BlockFunc(func(forBlock *Group) {
-			forBlock.Id("data").Op("=").Append(Id("data"), Id("ModelTo"+toCamelCase(parsedStruct.Name)).Call(Op("&").Id("i")))
+		mainBlock.Var().Id("data").Index().Op("*").Id(parsedStruct.camelCase + "Response")
+		mainBlock.For(List(Id("_"), Id("i")).Op(":=").Range().Id(parsedStruct.camelCase)).BlockFunc(func(forBlock *Group) {
+			forBlock.Id("data").Op("=").Append(Id("data"), Id("ModelTo"+parsedStruct.camelCase).Call(Op("&").Id("i")))
 		})
 		mainBlock.Var().Id("output").Op("=").Qual("github.com/divakarmanoj/go-scaffolding/imports", "Response").Values(Dict{
 			Id("Data"):    Id("data"),
@@ -127,24 +127,23 @@ func read(parsedStruct *Structure, f *File) *Statement {
 	})
 }
 
-func create(parsedStruct *Structure, f *File) *Statement {
-	return f.Func().Id("Create"+parsedStruct.Name).Params(Id("w").Qual("net/http", "ResponseWriter"), Id("r").Op("*").Qual("net/http", "Request")).BlockFunc(func(mainBlock *Group) {
-		mainBlock.Var().Id(toCamelCase(parsedStruct.Name)).Id(parsedStruct.Name + "Request")
-		//mainBlock.Id("err := json.NewDecoder(r.Body).Decode(&" + toCamelCase(parsedStruct.Name) + ")")
-		mainBlock.Id("err").Op(":=").Qual("encoding/json", "NewDecoder").Call(Id("r").Dot("Body")).Dot("Decode").Call(Op("&").Id(toCamelCase(parsedStruct.Name)))
+func create(parsedStruct *Config, f *File) *Statement {
+	return f.Func().Id("Create"+parsedStruct.camelCase).Params(Id("w").Qual("net/http", "ResponseWriter"), Id("r").Op("*").Qual("net/http", "Request")).BlockFunc(func(mainBlock *Group) {
+		mainBlock.Var().Id(parsedStruct.camelCase).Id(parsedStruct.camelCase + "Request")
+		mainBlock.Id("err").Op(":=").Qual("encoding/json", "NewDecoder").Call(Id("r").Dot("Body")).Dot("Decode").Call(Op("&").Id(parsedStruct.camelCase))
 		mainBlock.If(Id("err").Op("!=").Nil()).BlockFunc(func(ifBlock *Group) {
 			ifBlock.Qual("net/http", "Error").Call(Id("w"), Id("err").Dot("Error").Call(), Qual("net/http", "StatusBadRequest"))
 			ifBlock.Return()
 		})
 		mainBlock.Line()
-		mainBlock.Id("model").Op(":=").Id("RequestTo" + toCamelCase(parsedStruct.Name)).Call(Op("&").Id(toCamelCase(parsedStruct.Name)))
+		mainBlock.Id("model").Op(":=").Id("RequestTo" + parsedStruct.camelCase).Call(Op("&").Id(parsedStruct.camelCase))
 		mainBlock.If(Id("err").Op(":=").Id("db").Dot("Create").Call(Id("model")).Dot("Error").Op(";").Id("err").Op("!=").Nil()).BlockFunc(func(ifBlock *Group) {
 			ifBlock.Qual("net/http", "Error").Call(Id("w"), Id("err").Dot("Error").Call(), Qual("net/http", "StatusBadRequest"))
 			ifBlock.Return()
 		})
 		mainBlock.Line()
 		mainBlock.Var().Id("output").Op("=").Qual("github.com/divakarmanoj/go-scaffolding/imports", "Response").Values(Dict{
-			Id("Data"):    Id("ModelTo" + toCamelCase(parsedStruct.Name)).Call(Id("model")),
+			Id("Data"):    Id("ModelTo" + parsedStruct.camelCase).Call(Id("model")),
 			Id("Status"):  Id("\"success\""),
 			Id("Message"): Lit(parsedStruct.Name + " created successfully"),
 		})
