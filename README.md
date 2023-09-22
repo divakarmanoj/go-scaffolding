@@ -6,10 +6,10 @@ Usage:
   go run main.go [command]
 
 Available Commands:
-  completion  Generate the autocompletion script for the specified shell
-  generate    A brief description of your command
-  help        Help about any command
-  interactive This command will start an interactive command line interface to generate the model
+  - completion  Generate the autocompletion script for the specified shell
+  - generate    A brief description of your command
+  - help        Help about any command
+  - interactive This command will start an interactive command line interface to generate the model
 
 Flags:
   -h, --help                help for go-scaffolding
