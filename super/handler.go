@@ -32,10 +32,13 @@ func CreateSuper(w http.ResponseWriter, r *http.Request) {
 
 func ReadSuper(w http.ResponseWriter, r *http.Request) {
 	var err error
-	pageNumbers, ok := r.URL.Query()["page_number"]
-	pageNumber := 1
-	if ok && len(pageNumbers[0]) > 1 {
-		pageNumber, err = strconv.Atoi(pageNumbers[0])
+
+	// get cursor based pagination
+
+	cursors, ok := r.URL.Query()["cursor"]
+	cursor := 1
+	if ok && len(cursors[0]) > 1 {
+		cursor, err = strconv.Atoi(cursors[0])
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
@@ -53,7 +56,7 @@ func ReadSuper(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var Super []SuperModel
-	err = db.Limit(pageSize).Offset(pageSize * (pageNumber - 1)).Preload(clause.Associations).Find(&Super).Error
+	err = db.Preload(clause.Associations).Limit(pageSize+1).Where("id >= ?", cursor).Order("id asc").Find(&Super).Error
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -62,11 +65,17 @@ func ReadSuper(w http.ResponseWriter, r *http.Request) {
 	var data []*SuperResponse
 	for _, i := range Super {
 		data = append(data, ModelToSuper(&i))
+		if len(data) == pageSize {
+			break
+		}
 	}
 	var output = imports.Response{
 		Data:    data,
 		Message: "supers retrieved successfully",
 		Status:  "success",
+	}
+	if len(Super) > pageSize {
+		output.Cursor = Super[pageSize].ID
 	}
 	json.NewEncoder(w).Encode(output)
 }

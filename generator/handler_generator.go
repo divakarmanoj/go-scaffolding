@@ -87,10 +87,10 @@ func update(parsedStruct *Config, f *File) *Statement {
 func read(parsedStruct *Config, f *File) *Statement {
 	return f.Func().Id("Read"+parsedStruct.camelCase).Params(Id("w").Qual("net/http", "ResponseWriter"), Id("r").Op("*").Qual("net/http", "Request")).BlockFunc(func(mainBlock *Group) {
 		mainBlock.Var().Id("err").Error()
-		mainBlock.List(Id("pageNumbers"), Id("ok")).Op(":=").Id("r").Dot("URL").Dot("Query").Call().Index(Lit("page_number"))
-		mainBlock.Id("pageNumber").Op(":=").Lit(1)
-		mainBlock.If(Id("ok").Op("&&").Len(Id("pageNumbers").Index(Lit(0))).Op(">").Lit(1)).BlockFunc(func(ifBlock *Group) {
-			ifBlock.List(Id("pageNumber"), Id("err")).Op("=").Qual("strconv", "Atoi").Call(Id("pageNumbers").Index(Lit(0)))
+		mainBlock.List(Id("cursors"), Id("ok")).Op(":=").Id("r").Dot("URL").Dot("Query").Call().Index(Lit("cursor"))
+		mainBlock.Id("cursor").Op(":=").Lit(1)
+		mainBlock.If(Id("ok").Op("&&").Len(Id("cursors").Index(Lit(0))).Op(">").Lit(1)).BlockFunc(func(ifBlock *Group) {
+			ifBlock.List(Id("cursor"), Id("err")).Op("=").Qual("strconv", "Atoi").Call(Id("cursors").Index(Lit(0)))
 			ifBlock.If(Id("err").Op("!=").Nil()).BlockFunc(func(ifBlock *Group) {
 				ifBlock.Qual("net/http", "Error").Call(Id("w"), Id("err").Dot("Error").Call(), Qual("net/http", "StatusBadRequest"))
 				ifBlock.Return()
@@ -108,7 +108,7 @@ func read(parsedStruct *Config, f *File) *Statement {
 		})
 		mainBlock.Line()
 		mainBlock.Var().Id(parsedStruct.camelCase).Index().Id(parsedStruct.camelCase + "Model")
-		mainBlock.Id("err").Op("=").Id("db").Dot("Limit").Call(Id("pageSize")).Dot("Offset").Call(Id("pageSize").Op("*").Parens(Id("pageNumber").Op("-").Lit(1))).Dot("Preload").Call(Qual("gorm.io/gorm/clause", "Associations")).Dot("Find").Call(Op("&").Id(parsedStruct.camelCase)).Dot("Error")
+		mainBlock.Id("err").Op("=").Id("db").Dot("Preload").Call(Qual("gorm.io/gorm/clause", "Associations")).Dot("Limit").Call(Id("pageSize").Op("+").Lit(1)).Dot("Where").Call(Id("\"id >= ?\""), Id("cursor")).Dot("Order").Call(Id("\"id asc\"")).Dot("Find").Call(Op("&").Id(parsedStruct.camelCase)).Dot("Error")
 		mainBlock.If(Id("err").Op("!=").Nil()).BlockFunc(func(ifBlock *Group) {
 			ifBlock.Qual("net/http", "Error").Call(Id("w"), Id("err").Dot("Error").Call(), Qual("net/http", "StatusBadRequest"))
 			ifBlock.Return()
@@ -117,11 +117,17 @@ func read(parsedStruct *Config, f *File) *Statement {
 		mainBlock.Var().Id("data").Index().Op("*").Id(parsedStruct.camelCase + "Response")
 		mainBlock.For(List(Id("_"), Id("i")).Op(":=").Range().Id(parsedStruct.camelCase)).BlockFunc(func(forBlock *Group) {
 			forBlock.Id("data").Op("=").Append(Id("data"), Id("ModelTo"+parsedStruct.camelCase).Call(Op("&").Id("i")))
+			forBlock.If(Len(Id("data")).Op("==").Id("pageSize")).BlockFunc(func(ifBlock *Group) {
+				ifBlock.Break()
+			})
 		})
 		mainBlock.Var().Id("output").Op("=").Qual("github.com/divakarmanoj/go-scaffolding/imports", "Response").Values(Dict{
 			Id("Data"):    Id("data"),
 			Id("Status"):  Id("\"success\""),
 			Id("Message"): Lit(parsedStruct.Name + "s retrieved successfully"),
+		})
+		mainBlock.If(Len(Id(parsedStruct.camelCase)).Op(">").Id("pageSize")).BlockFunc(func(ifBlock *Group) {
+			ifBlock.Id("output").Dot("Cursor").Op("=").Id(parsedStruct.camelCase).Index(Id("pageSize")).Dot("ID")
 		})
 		mainBlock.Qual("encoding/json", "NewEncoder").Call(Id("w")).Dot("Encode").Call(Id("output"))
 	})
