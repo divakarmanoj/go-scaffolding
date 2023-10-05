@@ -69,14 +69,14 @@ func update(parsedStruct *Config, f *File) *Statement {
 			ifBlock.Return()
 		})
 		mainBlock.Line()
-		mainBlock.Id("model").Op(":=").Id("RequestTo" + parsedStruct.camelCase).Call(Op("&").Id(parsedStruct.camelCase))
+		mainBlock.Id("model").Op(":=").Id(parsedStruct.camelCase).Dot("ToModel").Call()
 		mainBlock.If(Id("err").Op(":=").Id("db").Dot("Model").Call(Op("&").Id("model")).Dot("Where").Call(Id("\"id = ?\""), Id("id")).Dot("Updates").Call(Op("&").Id("model")).Dot("Error").Id(";").Id("err").Op("!=").Nil()).BlockFunc(func(ifBlock *Group) {
 			ifBlock.Qual("net/http", "Error").Call(Id("w"), Id("err").Dot("Error").Call(), Qual("net/http", "StatusBadRequest"))
 			ifBlock.Return()
 		})
 		mainBlock.Line()
 		mainBlock.Var().Id("output").Op("=").Qual("github.com/divakarmanoj/go-scaffolding/imports", "Response").Values(Dict{
-			Id("Data"):    Id("ModelTo" + parsedStruct.camelCase).Call(Id("model")),
+			Id("Data"):    Id("model").Dot("ToResponse").Call(),
 			Id("Status"):  Id("\"success\""),
 			Id("Message"): Lit(parsedStruct.Name + " updated successfully"),
 		})
@@ -116,7 +116,7 @@ func read(parsedStruct *Config, f *File) *Statement {
 		mainBlock.Line()
 		mainBlock.Var().Id("data").Index().Op("*").Id(parsedStruct.camelCase + "Response")
 		mainBlock.For(List(Id("_"), Id("i")).Op(":=").Range().Id(parsedStruct.camelCase)).BlockFunc(func(forBlock *Group) {
-			forBlock.Id("data").Op("=").Append(Id("data"), Id("ModelTo"+parsedStruct.camelCase).Call(Op("&").Id("i")))
+			forBlock.Id("data").Op("=").Append(Id("data"), Id("i").Dot("ToResponse").Call())
 			forBlock.If(Len(Id("data")).Op("==").Id("pageSize")).BlockFunc(func(ifBlock *Group) {
 				ifBlock.Break()
 			})
@@ -142,14 +142,14 @@ func create(parsedStruct *Config, f *File) *Statement {
 			ifBlock.Return()
 		})
 		mainBlock.Line()
-		mainBlock.Id("model").Op(":=").Id("RequestTo" + parsedStruct.camelCase).Call(Op("&").Id(parsedStruct.camelCase))
+		mainBlock.Id("model").Op(":=").Id(parsedStruct.camelCase).Dot("ToModel").Call()
 		mainBlock.If(Id("err").Op(":=").Id("db").Dot("Create").Call(Id("model")).Dot("Error").Op(";").Id("err").Op("!=").Nil()).BlockFunc(func(ifBlock *Group) {
 			ifBlock.Qual("net/http", "Error").Call(Id("w"), Id("err").Dot("Error").Call(), Qual("net/http", "StatusBadRequest"))
 			ifBlock.Return()
 		})
 		mainBlock.Line()
 		mainBlock.Var().Id("output").Op("=").Qual("github.com/divakarmanoj/go-scaffolding/imports", "Response").Values(Dict{
-			Id("Data"):    Id("ModelTo" + parsedStruct.camelCase).Call(Id("model")),
+			Id("Data"):    Id("model").Dot("ToResponse").Call(),
 			Id("Status"):  Id("\"success\""),
 			Id("Message"): Lit(parsedStruct.Name + " created successfully"),
 		})

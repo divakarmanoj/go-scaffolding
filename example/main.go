@@ -12,24 +12,24 @@ var db *gorm.DB
 func main() {
 	var err error
 
-	db, err = gorm.Open(sqlite.Open("Super.db"), &gorm.Config{})
+	db, err = gorm.Open(sqlite.Open("Example.db"), &gorm.Config{})
 	if err != nil {
 		panic("failed to connect database")
 	}
 	defer func() {
-		err = os.RemoveAll("Super.db")
+		err = os.RemoveAll("Example.db")
 		if err != nil {
 			return
 		}
 	}()
 
-	db.AutoMigrate(&SuperModel{})
+	db.AutoMigrate(&ExampleModel{})
 	db.AutoMigrate(&AddressModel{})
 
-	http.HandleFunc("/super/read", ReadSuper)
-	http.HandleFunc("/super/create", CreateSuper)
-	http.HandleFunc("/super/update", UpdateSuper)
-	http.HandleFunc("/super/delete", DeleteSuper)
+	http.HandleFunc("/example/read", ReadExample)
+	http.HandleFunc("/example/create", CreateExample)
+	http.HandleFunc("/example/update", UpdateExample)
+	http.HandleFunc("/example/delete", DeleteExample)
 	err = http.ListenAndServe(":3333", nil)
 	if err != nil {
 		panic(err)

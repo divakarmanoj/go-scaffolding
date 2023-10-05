@@ -5,7 +5,7 @@ import "gorm.io/gorm"
 type Response struct {
 	Status  string      `json:"status"`
 	Message string      `json:"message"`
-	Data    interface{} `json:"data"`
+	Data    interface{} `json:"data,omitempty"`
 	Cursor  uint        `json:"cursor,omitempty"`
 }
 

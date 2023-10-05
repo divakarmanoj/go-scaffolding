@@ -60,7 +60,6 @@ func (receiver *Config) Generate(outputDir string) {
 	_ = os.MkdirAll(outputDir+ToSnakeCase(receiver.Name), os.ModePerm)
 	GenerateRequestResponse(receiver, outputDir)
 	_, model := GenerateModel(receiver, outputDir)
-	GenerateAdaptor(receiver, outputDir)
 	GenerateHandler(receiver, outputDir)
 	GenerateMain(receiver, model, outputDir)
 }
