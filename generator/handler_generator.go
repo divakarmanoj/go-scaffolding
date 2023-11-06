@@ -76,7 +76,6 @@ func update(parsedStruct *Config, f *File) *Statement {
 		})
 		mainBlock.Line()
 		mainBlock.Var().Id("output").Op("=").Qual("github.com/divakarmanoj/go-scaffolding/imports", "Response").Values(Dict{
-			Id("Data"):    Id("model").Dot("ToResponse").Call(),
 			Id("Status"):  Id("\"success\""),
 			Id("Message"): Lit(parsedStruct.Name + " updated successfully"),
 		})
